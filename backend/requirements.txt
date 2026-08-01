@@ -63,5 +63,5 @@ langchain-text-splitters==0.3.2
 langchain-openai==0.2.9
 
 # --- Embedding 模型 ---
-sentence-transformers==3.2.1
+sentence-transformers==5.6.1
 FlagEmbedding==1.2.11
