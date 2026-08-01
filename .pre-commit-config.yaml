@@ -1,0 +1,39 @@
+# Pre-commit hooks 配置
+# 用于在提交前自动运行代码检查和格式化
+# 安装：pip install pre-commit && pre-commit install
+
+repos:
+  # Python 代码检查
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # 基础检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  # 注：前端 ESLint hook 暂时移除——frontend 尚未配置 eslint.config.js 及 eslint 依赖，
+  # 直接启用会导致 pre-commit 失败。待补全前端 lint 配置后恢复此段即可。
+  # - repo: https://github.com/pre-commit/mirrors-eslint
+  #   rev: v9.15.0
+  #   hooks:
+  #     - id: eslint
+  #       files: \.[jt]sx?$
+  #       types: [file]
+  #       additional_dependencies:
+  #         - eslint@9.15.0
+  #         - typescript@5.6.2
+  #         - typescript-eslint@8.15.0
