@@ -34,9 +34,11 @@ class GraphRequest(BaseModel):
 
 
 def _parse_repo(repo_url: str, branch: str | None, max_files: int):
-    """克隆并解析仓库，返回 ParsingResultSummary 与本地路径。
+    """克隆并解析仓库，返回 (ParsingResultSummary, local_path)。
 
-    复用 /repos/parse 的同步流程；阶段四将迁移至 Celery 异步任务。
+    注意：成功时**不清理**本地仓库目录，由调用方在 finally 中清理。
+    因为图提取（extract / extract_call_chain）需要重新读取原始文件，
+    必须在 cleanup 之前执行。
     """
     logger.info(f"图查询: 克隆 {repo_url}")
     try:
@@ -50,10 +52,9 @@ def _parse_repo(repo_url: str, branch: str | None, max_files: int):
         summary = pipeline.run(local_path, repo_url=repo_url, max_files=max_files)
         return summary, local_path
     except Exception as e:
+        github_service.cleanup(local_path)
         logger.exception("解析管线执行失败")
         raise HTTPException(status_code=500, detail=f"解析失败: {e}") from e
-    finally:
-        github_service.cleanup(local_path)
 
 
 @router.get("/graph", response_model=GraphData)
@@ -70,13 +71,17 @@ async def get_dependency_graph(
     返回节点（module/class/function/interface）与边（import/call/inherit/implement），
     支持按节点类型过滤。
     """
-    summary, _ = _parse_repo(repo_url, branch, max_files)
+    summary, local_path = _parse_repo(repo_url, branch, max_files)
 
     try:
-        graph = call_graph_extractor.extract(summary.files, repo_url=repo_url)
+        graph = call_graph_extractor.extract(
+            summary.files, repo_url=repo_url, repo_path=local_path
+        )
     except Exception as e:
         logger.exception("依赖图构建失败")
         raise HTTPException(status_code=500, detail=f"图构建失败: {e}") from e
+    finally:
+        github_service.cleanup(local_path)
 
     # 可选：按节点类型过滤
     if node_type:
@@ -101,15 +106,18 @@ async def get_sequence_diagram(
 
     从指定入口函数出发，沿调用关系遍历，生成 Mermaid sequenceDiagram。
     """
-    summary, _ = _parse_repo(repo_url, branch, max_files)
+    summary, local_path = _parse_repo(repo_url, branch, max_files)
 
     try:
         seq = call_graph_extractor.extract_call_chain(
-            summary.files, entry_function=entry, repo_url=repo_url, max_depth=max_depth
+            summary.files, entry_function=entry, repo_url=repo_url,
+            max_depth=max_depth, repo_path=local_path,
         )
     except Exception as e:
         logger.exception("调用链提取失败")
         raise HTTPException(status_code=500, detail=f"时序图生成失败: {e}") from e
+    finally:
+        github_service.cleanup(local_path)
 
     return seq
 
@@ -120,6 +128,11 @@ async def post_dependency_graph(req: GraphRequest) -> GraphData:
 
     时序图请使用 GET /repos/sequence。
     """
-    summary, _ = _parse_repo(req.repo_url, req.branch, req.max_files)
-    graph = call_graph_extractor.extract(summary.files, repo_url=req.repo_url)
+    summary, local_path = _parse_repo(req.repo_url, req.branch, req.max_files)
+    try:
+        graph = call_graph_extractor.extract(
+            summary.files, repo_url=req.repo_url, repo_path=local_path
+        )
+    finally:
+        github_service.cleanup(local_path)
     return graph

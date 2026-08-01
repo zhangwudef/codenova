@@ -28,11 +28,20 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_v1_prefix: str = "/api/v1"
 
+    # ---------- 安全 ----------
+    # API Key 鉴权：留空则不启用（仅本地开发）。生产环境务必设置强随机值。
+    codenova_api_key: str = ""
+    # CORS 允许的来源，逗号分隔。空列表时仅允许 localhost 开发域名。
+    cors_allowed_origins: str = ""
+    # Demo 模式：限制单次解析最大文件数，防止 OOM（生产环境建议设置）
+    demo_max_files: int = 0  # 0 表示不限制
+
     # ---------- PostgreSQL ----------
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "codenova"
-    postgres_password: str = "codenova_dev_2026"
+    # ⚠️ 生产环境必须修改：通过 .env 设置强密码
+    postgres_password: str = "CHANGE_ME_IN_PRODUCTION"
     postgres_db: str = "codenova"
     postgres_dsn: str = ""
 
@@ -66,7 +75,8 @@ class Settings(BaseSettings):
     minio_host: str = "localhost"
     minio_port: int = 9000
     minio_root_user: str = "minioadmin"
-    minio_root_password: str = "minioadmin123"
+    # ⚠️ 生产环境必须修改：通过 .env 设置强密码
+    minio_root_password: str = "CHANGE_ME_IN_PRODUCTION"
     minio_secure: bool = False
     minio_bucket_repos: str = "codenova-repos"
     minio_bucket_docs: str = "codenova-docs"
@@ -100,7 +110,7 @@ class Settings(BaseSettings):
     ignore_extensions: tuple[str, ...] = (".min.js", ".min.css", ".map", ".lock")
     max_file_size_kb: int = 512  # 超过此大小的文件跳过解析
 
-    # ---------- LLM（阶段二启用） ----------
+    # ---------- LLM ----------
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "BAAI/bge-m3"
@@ -111,6 +121,14 @@ class Settings(BaseSettings):
         p = Path(self.github_clone_base_dir)
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """解析 CORS_ALLOWED_ORIGINS 环境变量，逗号分隔。"""
+        if self.cors_allowed_origins:
+            return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+        # 开发环境默认
+        return ["http://localhost:5173", "http://0.0.0.0:5173"]
 
 
 @lru_cache

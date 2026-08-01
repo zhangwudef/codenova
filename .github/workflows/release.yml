@@ -1,0 +1,115 @@
+name: Release
+
+# 触发条件：推送 v*.*.* 格式的 tag
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ----------------------------------------------------------------
+  # 构建 Docker 镜像并推送到 GitHub Container Registry (GHCR)
+  # ----------------------------------------------------------------
+  build-and-push-images:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: codenova-backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile.prod
+          - image: codenova-frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile.prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----------------------------------------------------------------
+  # 创建 GitHub Release（从 CHANGELOG.md 提取本版本内容）
+  # ----------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    needs: build-and-push-images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          # 从 CHANGELOG.md 提取对应版本的内容
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # 去掉 v 前缀用于匹配 CHANGELOG
+          VERSION_NO_V="${VERSION#v}"
+          # 提取 [VERSION_NO_V] 到下一个 ## 之间的内容
+          awk -v ver="$VERSION_NO_V" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]") > 0) { found=1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.txt
+          # 如果没提取到内容，使用通用说明
+          if [ ! -s release_notes.txt ]; then
+            echo "Release ${VERSION}" > release_notes.txt
+            echo "" >> release_notes.txt
+            echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full details." >> release_notes.txt
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          generate_release_notes: true

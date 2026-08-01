@@ -244,19 +244,28 @@ class FixedLengthChunkStrategy(BaseChunkStrategy):
 
 
 class ChunkStrategyFactory:
-    """切分策略工厂。"""
+    """切分策略工厂。
 
-    _strategies: ClassVar[dict[str, BaseChunkStrategy]] = {}
+    使用模块级单例缓存策略实例，避免重复初始化。
+    """
+
+    _strategies: ClassVar[dict[str, BaseChunkStrategy] | None] = None
 
     @classmethod
-    def get_strategy(cls, name: str) -> BaseChunkStrategy:
-        """根据名称获取切分策略。"""
-        if name not in cls._strategies:
+    def _ensure_initialized(cls) -> None:
+        """惰性初始化策略字典（仅首次调用时创建实例）。"""
+        if cls._strategies is None:
             cls._strategies = {
                 "ast": ASTChunkStrategy(),
                 "semantic": SemanticChunkStrategy(),
                 "fixed": FixedLengthChunkStrategy(),
             }
+
+    @classmethod
+    def get_strategy(cls, name: str) -> BaseChunkStrategy:
+        """根据名称获取切分策略。"""
+        cls._ensure_initialized()
+        assert cls._strategies is not None  # narrowing for type checker
         strategy = cls._strategies.get(name)
         if strategy is None:
             raise ValueError(f"未知的切分策略: {name}")

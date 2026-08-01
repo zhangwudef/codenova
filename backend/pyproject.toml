@@ -48,3 +48,47 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html:tests/coverage_html",
+    "--cov-report=xml:tests/coverage.xml",
+    "--cov-config=tests/.coveragerc",
+]
+markers = [
+    "integration: marks tests that require external services (Qdrant, OpenAI, etc.)",
+    "benchmark: marks benchmark tests (slow, run with --benchmark flag)",
+    "slow: marks slow tests",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/celery_app.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+show_missing = true
+precision = 2
+fail_under = 55  # 基线: 55%（从 50% 提升，后续逐步提升至 70%）

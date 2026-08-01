@@ -6,6 +6,10 @@
   color-scheme: light;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -18,6 +22,12 @@ body {
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 暗色主题背景 */
+html.dark body {
+  background: linear-gradient(180deg, #09090b 0%, #18181b 100%);
+  color: #f4f4f5;
 }
 
 /* 自定义滚动条 */
@@ -34,4 +44,12 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* 暗色滚动条 */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }

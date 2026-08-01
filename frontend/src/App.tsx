@@ -15,7 +15,10 @@ import FileTree from './components/FileTree'
 import CenterPanel from './components/CenterPanel'
 import ChatPanel from './components/ChatPanel'
 import ParseSteps from './components/ParseSteps'
+import { ThemeInitializer } from './components/ThemeInitializer'
+import { SettingsPanel } from './components/SettingsPanel'
 import { useRepoStore } from './stores/repoStore'
+import { useRepoHistoryStore } from './stores/themeStore'
 
 // 解析进度指示器组件（使用步骤指示器，文档 3.4 节）
 function ParseProgress({
@@ -156,6 +159,7 @@ function RepoInputModal({
 // 主应用组件
 export default function App() {
   const [showRepoModal, setShowRepoModal] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(280) // 左侧面板宽度
   const [rightPanelWidth, setRightPanelWidth] = useState(380) // 右侧面板宽度
 
@@ -170,6 +174,8 @@ export default function App() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  const addRepoHistory = useRepoHistoryStore((s) => s.add)
 
   const repoUrl = useRepoStore(state => state.repoUrl)
   const repoName = useRepoStore(state => state.repoName)
@@ -188,13 +194,12 @@ export default function App() {
   const [selectedPath, setSelectedPath] = useState<string | undefined>()
 
   const handleParseRepo = useCallback(async (url: string, branch?: string) => {
-    // 优先使用异步解析（Celery + WebSocket 实时进度），失败回退同步
-    try {
-      await parseRepoAsync(url, branch)
-    } catch {
-      await parseRepo(url, branch)
-    }
-  }, [parseRepoAsync, parseRepo])
+    // 同步解析优先（无需 Celery/Redis，适合 demo 与本地开发）
+    // 如需异步解析（带 WebSocket 实时进度），确保 Redis + Celery worker 已启动
+    await parseRepo(url, branch)
+    // 记录到历史
+    addRepoHistory(url, branch)
+  }, [parseRepo, addRepoHistory])
 
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path)
@@ -241,9 +246,12 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden min-w-[1024px]">
+    <div className="h-screen w-screen flex flex-col bg-slate-100 dark:bg-zinc-950 overflow-hidden min-w-[1024px]">
+      <ThemeInitializer />
+      <SettingsPanel open={showSettings} onClose={() => setShowSettings(false)} />
+
       {/* 顶部导航栏 */}
-      <header className="flex-shrink-0 h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shadow-sm">
+      <header className="flex-shrink-0 h-14 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-indigo-500 flex items-center justify-center">
@@ -253,14 +261,14 @@ export default function App() {
               CodeNova
             </span>
           </div>
-          
+
           {repoUrl && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100">
-              <GitBranch size={14} className="text-slate-500" />
-              <span className="text-sm font-medium text-slate-700">{repoName}</span>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800">
+              <GitBranch size={14} className="text-slate-500 dark:text-zinc-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-zinc-200">{repoName}</span>
               <button
                 onClick={resetState}
-                className="ml-1 p-0.5 rounded hover:bg-red-100 hover:text-red-500 transition-colors"
+                className="ml-1 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-500 transition-colors"
                 title="移除仓库"
               >
                 <X size={12} />
@@ -277,9 +285,13 @@ export default function App() {
             <Play size={14} />
             {repoUrl ? '解析新仓库' : '解析仓库'}
           </button>
-          
-          <button className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
-            <Settings size={20} className="text-slate-500" />
+
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+            title="设置"
+          >
+            <Settings size={20} className="text-slate-500 dark:text-zinc-400" />
           </button>
         </div>
       </header>
@@ -288,14 +300,14 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧面板 - 文件树 */}
         <aside
-          className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden"
+          className="flex-shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden"
           style={{ width: `${sidebarWidth}px` }}
         >
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center gap-2">
             <FolderTree size={18} className="text-brand-500" />
-            <span className="text-sm font-semibold text-slate-700">项目文件</span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-zinc-200">项目文件</span>
             {parseResult && (
-              <span className="ml-auto text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+              <span className="ml-auto text-xs text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
                 {parseResult.parsed_files} 文件
               </span>
             )}
@@ -332,7 +344,7 @@ export default function App() {
 
         {/* 右侧面板 - 问答 */}
         <aside
-          className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden"
+          className="flex-shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden"
           style={{ width: `${rightPanelWidth}px` }}
         >
           <ChatPanel onJumpToSource={handleJumpToSource} />

@@ -1,0 +1,23 @@
+# 测试覆盖率配置
+# 指定排除项（与 pyproject.toml 互补）
+
+[run]
+source = app
+branch = True
+omit =
+    */tests/*
+    */__pycache__/*
+    */migrations/*
+    app/celery_app.py
+    app/bootstrap.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @overload
+    if settings\.app_debug
+show_missing = True
+precision = 2

@@ -50,7 +50,9 @@ tqdm==4.66.5
 # --- 开发与测试 ---
 pytest==8.3.3
 pytest-asyncio==0.24.0
+pytest-cov==5.0.0
 ruff==0.6.8
+# 注：httpx 已在上方「GitHub 集成」声明，同时供 FastAPI TestClient 使用，此处不再重复
 
 # --- LangChain RAG ---
 langchain==0.3.7

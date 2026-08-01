@@ -15,10 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 升级 pip 并安装依赖（利用缓存层）；使用国内镜像加速
+# 可选：通过 build-arg 指定 PyPI 镜像（国内加速），默认使用官方源
+# 用法：docker build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple .
+ARG PIP_INDEX_URL=
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN if [ -n "$PIP_INDEX_URL" ]; then \
+        pip install --no-cache-dir --upgrade pip -i "$PIP_INDEX_URL" && \
+        pip install --no-cache-dir -r requirements.txt -i "$PIP_INDEX_URL"; \
+    else \
+        pip install --no-cache-dir --upgrade pip && \
+        pip install --no-cache-dir -r requirements.txt; \
+    fi
 
 # 源码挂载（开发模式由 compose volume 覆盖）
 # 注：tree-sitter 语言包提供预编译 wheel，语言预热在运行时由 app.bootstrap 完成

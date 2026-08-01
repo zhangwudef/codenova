@@ -11,6 +11,18 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <!-- 防止主题切换闪烁（FOUC）：在加载 React 前先应用暗色类 -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('codenova-theme')
+          var mode = stored ? JSON.parse(stored).state.mode : 'system'
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var isDark = mode === 'dark' || (mode === 'system' && prefersDark)
+          if (isDark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

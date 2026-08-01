@@ -8,14 +8,28 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 from loguru import logger
 
 from app.core.config import settings
+
+
+# 严格的 GitHub URL 模式：仅允许 github.com 主机名，禁止子域名伪装
+_GITHUB_HTTPS_PATTERN = re.compile(
+    r"^https://github\.com/[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+(?:\.git)?/?$"
+)
+_GITHUB_SSH_PATTERN = re.compile(
+    r"^git@github\.com:[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+(?:\.git)?$"
+)
+
+# 允许的协议与主机
+_ALLOWED_HOSTS = {"github.com"}
 
 
 class GitHubService:
@@ -26,7 +40,37 @@ class GitHubService:
 
     @staticmethod
     def _is_valid_github_url(url: str) -> bool:
-        return url.startswith(("https://github.com/", "git@github.com:"))
+        """严格校验 GitHub URL。
+
+        防御点:
+        - 仅允许 github.com 主机名（防止 https://github.com.evil.com/ 伪装）
+        - 仅允许 https 与 ssh 协议
+        - 仓库路径字符白名单（防止命令注入）
+        """
+        if not url or not isinstance(url, str):
+            return False
+        if _GITHUB_HTTPS_PATTERN.match(url):
+            return True
+        if _GITHUB_SSH_PATTERN.match(url):
+            return True
+        return False
+
+    @staticmethod
+    def _validate_url_safe(url: str) -> None:
+        """对 URL 做安全校验，不通过则抛 ValueError。"""
+        if not GitHubService._is_valid_github_url(url):
+            raise ValueError(
+                f"非法的 GitHub 地址: {url!r}. 仅允许 https://github.com/<owner>/<repo> 或 git@github.com:<owner>/<repo> 格式。"
+            )
+        # 二次解析校验：确认主机名确为 github.com
+        try:
+            if url.startswith("https://"):
+                parsed = urlparse(url)
+                if parsed.hostname not in _ALLOWED_HOSTS:
+                    raise ValueError(f"非允许的主机名: {parsed.hostname}")
+            # SSH 格式不通过 urlparse 解析，已在正则阶段严格校验
+        except Exception as e:
+            raise ValueError(f"URL 解析失败: {e}") from e
 
     def clone(self, repo_url: str, branch: str | None = None) -> Path:
         """克隆仓库到本地，返回目标目录。
@@ -39,8 +83,12 @@ class GitHubService:
             ValueError: URL 非法
             RuntimeError: git clone 失败
         """
-        if not self._is_valid_github_url(repo_url):
-            raise ValueError(f"非法的 GitHub 地址: {repo_url}")
+        # 严格校验 URL，防止 SSRF 与命令注入
+        self._validate_url_safe(repo_url)
+
+        # branch 校验：仅允许字母数字 / . _ - /
+        if branch and not re.match(r"^[A-Za-z0-9._/\-]+$", branch):
+            raise ValueError(f"非法的分支名: {branch!r}")
 
         # 以短 UUID 命名避免冲突
         target = self.base_dir / f"repo_{uuid.uuid4().hex[:10]}"

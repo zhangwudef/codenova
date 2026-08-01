@@ -237,10 +237,28 @@ export const useRepoStore = create<RepoState>((set, get) => ({
       // 4. 拉取依赖图
       get().fetchDependencyGraph(url, branch).catch(() => {})
     } catch (e) {
-      set({
-        parseError: (e as Error).message,
-        isParsing: false,
-      })
+      // 异步解析失败（如 Celery/Redis 不可用），回退到同步解析
+      console.warn('[CodeNova] 异步解析失败，回退同步解析', e)
+      try {
+        set({ parseError: null, isParsing: true, parseStep: '正在同步解析仓库...', parseProgress: 30, parseStepId: 'parse' })
+        const result = await api.parseRepo(url, branch)
+        const fileTree = buildFileTree(result.files)
+        set({
+          parseResult: result,
+          fileTree,
+          isParsing: false,
+          parseProgress: 100,
+          parseStep: '解析完成',
+          parseStepId: 'complete',
+        })
+        // 同步解析完成后异步拉取依赖图
+        get().fetchDependencyGraph(url, branch).catch(() => {})
+      } catch (syncErr) {
+        set({
+          parseError: (syncErr as Error).message,
+          isParsing: false,
+        })
+      }
     }
   },
 

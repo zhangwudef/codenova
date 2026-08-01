@@ -1,0 +1,42 @@
+name: Stale
+
+# 自动关闭长期不活跃的 Issue 和 PR
+# https://github.com/actions/stale
+
+on:
+  schedule:
+    # 每天 01:00 UTC 运行
+    - cron: "0 1 * * *"
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue 规则
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: "stale"
+          exempt-issue-labels: "pinned,security,enhancement,bug,needs-triage,good first issue,help wanted"
+          stale-issue-message: |
+            此 Issue 已 60 天无活动，标记为 stale。
+            若仍相关，请留言或移除 stale 标签，否则将在 14 天后自动关闭。
+
+          # PR 规则
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          exempt-pr-labels: "pinned,dependencies,security"
+          stale-pr-message: |
+            此 PR 已 30 天无活动，标记为 stale。
+            若仍在推进，请更新或留言，否则将在 14 天后自动关闭。
+
+          # 操作上限（避免一次关闭过多）
+          operations-per-run: 30

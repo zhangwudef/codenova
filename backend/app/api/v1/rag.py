@@ -106,6 +106,30 @@ class IndexByUrlRequest(BaseModel):
     chunk_strategy: str = Field(default="ast", description="切分策略: ast/semantic/fixed")
 
 
+def _enforce_demo_limit(requested: int) -> int:
+    """Demo 模式下强制限制 max_files，防止 OOM。"""
+    if settings.demo_max_files > 0:
+        capped = min(requested, settings.demo_max_files)
+        if capped < requested:
+            logger.warning(
+                f"Demo 模式: max_files 从 {requested} 限制为 {capped}"
+            )
+        return capped
+    return requested
+
+
+# RAGChain 单例：避免每次请求重建 LLM/VectorStore 实例
+_rag_chain_instance: RAGChain | None = None
+
+
+def get_rag_chain() -> RAGChain:
+    """获取 RAGChain 单例。"""
+    global _rag_chain_instance
+    if _rag_chain_instance is None:
+        _rag_chain_instance = RAGChain()
+    return _rag_chain_instance
+
+
 @router.post("/index", response_model=IndexResult)
 async def index_repo(req: IndexByUrlRequest) -> IndexResult:
     """构建仓库索引。
@@ -122,9 +146,10 @@ async def index_repo(req: IndexByUrlRequest) -> IndexResult:
         raise HTTPException(status_code=422, detail=f"克隆失败: {e}") from e
 
     try:
-        # Step 1: 解析仓库
+        # Step 1: 解析仓库（Demo 模式自动限制文件数）
+        effective_max = _enforce_demo_limit(req.max_files)
         pipeline = ParsingPipeline()
-        summary = pipeline.run(local_path, repo_url=url, max_files=req.max_files)
+        summary = pipeline.run(local_path, repo_url=url, max_files=effective_max)
 
         # Step 2: 收集所有代码块
         all_chunks = []
@@ -153,7 +178,9 @@ async def index_repo(req: IndexByUrlRequest) -> IndexResult:
         # Step 4: 构建调用关系图索引（文档 4.1 节「双索引策略」）
         try:
             from app.services.analyzer.call_graph import CallGraphExtractor
-            graph_data = CallGraphExtractor().extract(summary.files, repo_url=url)
+            graph_data = CallGraphExtractor().extract(
+                summary.files, repo_url=url, repo_path=local_path
+            )
             graph_store_service.save(graph_data)
             logger.info(
                 f"图索引构建完成: nodes={len(graph_data.nodes)}, "
@@ -368,7 +395,7 @@ async def ask_question(question: QAQuestion) -> QAAnswer:
     logger.info(f"收到问答请求: {question.question[:50]}...")
 
     try:
-        chain = RAGChain()
+        chain = get_rag_chain()
         answer = chain.ask(question)
         return answer
     except Exception as e:
@@ -388,7 +415,7 @@ async def ask_question_stream(question: QAQuestion) -> StreamingResponse:
     logger.info(f"收到流式问答请求: {question.question[:50]}...")
 
     def event_stream():
-        chain = RAGChain()
+        chain = get_rag_chain()
         try:
             for event in chain.ask_stream(question):
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
@@ -419,7 +446,7 @@ async def generate_document_api(req: DocGenerateRequest) -> DocGenerateResult:
     try:
         # 优先 RAG 增强
         if req.repo_url:
-            chain = RAGChain()
+            chain = get_rag_chain()
             content, sources = chain.generate_doc_with_rag(
                 doc_type=req.doc_type.value,
                 repo_url=req.repo_url,

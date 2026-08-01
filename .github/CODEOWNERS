@@ -1,0 +1,29 @@
+# CODEOWNERS — automatic reviewer assignment
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Each line: pattern  @username (or @org/team)
+
+# 默认所有者
+*                          @zhangwudef
+
+# 后端
+/backend/                  @zhangwudef
+/backend/app/services/rag/ @zhangwudef
+
+# 前端
+/frontend/                 @zhangwudef
+
+# CI/CD 与基础设施
+/.github/                  @zhangwudef
+/docker-compose*.yml       @zhangwudef
+/Dockerfile*               @zhangwudef
+/render.yaml               @zhangwudef
+/fly.toml                  @zhangwudef
+/railway.json              @zhangwudef
+
+# 文档
+/docs/                     @zhangwudef
+/README.md                 @zhangwudef
+/CONTRIBUTING.md           @zhangwudef
+/SECURITY.md               @zhangwudef
+/CHANGELOG.md              @zhangwudef

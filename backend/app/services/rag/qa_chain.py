@@ -397,7 +397,7 @@ class RAGChain:
             if chunk.metadata.qualified_name:
                 source_info += f" 符号: {chunk.metadata.qualified_name}"
 
-            context_parts.append(f"{source_info}\n```{'python' if chunk.metadata.language == 'python' else ''}\n{chunk.content}\n```")
+            context_parts.append(f"{source_info}\n```{chunk.metadata.language}\n{chunk.content}\n```")
 
         return "\n\n".join(context_parts)
 

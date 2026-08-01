@@ -1,0 +1,16 @@
+# GitHub Issue template configuration
+# https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+# Disable blank issues so that reporters are guided to a template.
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📚 Documentation & README
+    url: https://github.com/zhangwudef/codenova#readme
+    about: Please check the README and docs/ before opening an issue — your question may already be answered.
+  - name: 💬 Discussions & Questions
+    url: https://github.com/zhangwudef/codenova/discussions
+    about: Ask questions, share ideas, or start a discussion here instead of opening an issue.
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/zhangwudef/codenova/security/advisories/new
+    about: Found a security issue? Please report it privately instead of opening a public issue. See SECURITY.md.

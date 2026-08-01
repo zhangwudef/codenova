@@ -102,12 +102,20 @@ def _module_id(file_path: str) -> str:
 class CallGraphExtractor:
     """调用关系图提取器。"""
 
-    def extract(self, files_info: list[FileInfo], repo_url: str = "") -> GraphData:
+    def extract(
+        self,
+        files_info: list[FileInfo],
+        repo_url: str = "",
+        repo_path: Path | str | None = None,
+    ) -> GraphData:
         """从解析结果提取完整依赖图。
 
         Args:
             files_info: ParsingPipeline 输出的文件信息列表
             repo_url: 仓库地址（写入结果便于追溯）
+            repo_path: 本地仓库根目录。提供时会重新读取原始文件做 AST
+                重解析，使 CodeChunk 的字节偏移与源码一致，边归属准确；
+                为 None 时回退到拼接 chunks（偏移不保证准确，边归属降级）。
 
         Returns:
             GraphData: 节点+边列表
@@ -188,6 +196,7 @@ class CallGraphExtractor:
                     module_by_basename=module_by_basename,
                     edges=edges,
                     edge_seen=edge_seen,
+                    repo_path=repo_path,
                 )
             except Exception as e:  # noqa: BLE001
                 logger.warning(f"提取关系边失败 {file_info.path}: {e}")
@@ -212,6 +221,7 @@ class CallGraphExtractor:
         module_by_basename: dict[str, list[str]],
         edges: list[GraphEdge],
         edge_seen: set[tuple[str, str, str]],
+        repo_path: Path | str | None = None,
     ) -> None:
         """重新解析单文件 AST，提取四类关系边。"""
         language = file_info.language
@@ -225,12 +235,17 @@ class CallGraphExtractor:
             logger.debug(f"获取 {language} 解析器失败: {e}")
             return
 
-        # 重新读取源码（FileInfo 未保留原始文本，但 chunks 拼接可近似）
-        # 这里通过 chunks 还原源码片段用于 AST 重解析——更稳妥是重新读文件，
-        # 但 extract 接口只接收 FileInfo。改为从 chunks 拼接：
-        source = "\n".join(c.content for c in file_info.chunks)
+        # 重新读取源码用于 AST 重解析。优先从 repo_path 读取原始文件：
+        # 此时 CodeChunk 的 start_byte/end_byte 与源码一致，_find_containing_symbol
+        # 能准确定位调用者；无 repo_path 时回退到拼接 chunks（偏移不保证准确）。
+        source, is_original = self._load_source(file_info, repo_path)
         if not source.strip():
             return
+        if not is_original:
+            logger.debug(
+                f"未提供 repo_path 或读取失败，回退拼接 chunks: {file_info.path} "
+                "（call 边归属可能不准）"
+            )
 
         source_bytes = source.encode("utf-8", errors="replace")
         try:
@@ -260,6 +275,29 @@ class CallGraphExtractor:
             edges=edges,
             edge_seen=edge_seen,
         )
+
+    @staticmethod
+    def _load_source(file_info: FileInfo, repo_path: Path | str | None) -> tuple[str, bool]:
+        """加载文件源码用于 AST 重解析。
+
+        优先从 repo_path 重新读取原始文件：此时源码与 CodeChunk 的
+        start_byte/end_byte 一致，``_find_containing_symbol`` 能准确定位
+        调用者，call 边归属正确。
+        当 repo_path 为空或读取失败时，回退到拼接 chunks（偏移不保证准确，
+        边归属降级），保留向后兼容与无仓库路径场景（如单元测试）的可用性。
+
+        Returns:
+            (source_text, is_original): 源码字符串 + 是否为原始文件
+        """
+        if repo_path:
+            try:
+                full_path = Path(repo_path) / file_info.path
+                if full_path.is_file():
+                    return full_path.read_text(encoding="utf-8", errors="replace"), True
+            except OSError as e:
+                logger.debug(f"重读源文件失败 {file_info.path}: {e}")
+        # 回退：拼接 chunks（偏移不保证准确，仅保证不阻断流程）
+        return "\n".join(c.content for c in file_info.chunks), False
 
     def _walk_for_edges(
         self,
@@ -583,6 +621,7 @@ class CallGraphExtractor:
         entry_function: str,
         repo_url: str = "",
         max_depth: int = 5,
+        repo_path: Path | str | None = None,
     ) -> SequenceData:
         """从入口函数出发提取调用链，生成时序图数据。
 
@@ -591,6 +630,7 @@ class CallGraphExtractor:
             entry_function: 入口函数名（symbol_name 或 qualified_name）
             repo_url: 仓库地址
             max_depth: 最大调用深度
+            repo_path: 本地仓库根目录，透传给 extract 以读取原始文件
 
         Returns:
             SequenceData: 时序图数据 + Mermaid 语法
@@ -598,7 +638,7 @@ class CallGraphExtractor:
         start = time.perf_counter()
 
         # 先构建完整依赖图以获取 call 边
-        graph = self.extract(files_info, repo_url=repo_url)
+        graph = self.extract(files_info, repo_url=repo_url, repo_path=repo_path)
 
         # 构建邻接表：caller_id -> [(callee_id, callee_label)]
         call_adj: dict[str, list[tuple[str, str]]] = defaultdict(list)

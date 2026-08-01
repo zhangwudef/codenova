@@ -2,6 +2,36 @@
 
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
 
+// API Key：通过 localStorage 持久化，部署到带鉴权的 Demo 时由用户填入
+// 生产环境前端通过 Settings 面板设置，调用时自动附加 X-API-Key 头
+function getApiKey(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('codenova_api_key') || null
+}
+
+export function setApiKey(key: string | null): void {
+  if (typeof window === 'undefined') return
+  if (key) {
+    localStorage.setItem('codenova_api_key', key)
+  } else {
+    localStorage.removeItem('codenova_api_key')
+  }
+}
+
+export function hasApiKey(): boolean {
+  return !!getApiKey()
+}
+
+/** 构建带 API Key 的请求头 */
+function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...extra }
+  const apiKey = getApiKey()
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey
+  }
+  return headers
+}
+
 export interface ServiceCheck {
   status: 'ok' | 'error'
   detail?: string
@@ -228,7 +258,7 @@ export interface WsMessage {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(),
     ...options,
   })
   if (!res.ok) {
@@ -293,10 +323,7 @@ export const api = {
     const controller = new AbortController()
     const responsePromise = fetch(`${BASE}/rag/ask-stream`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-      },
+      headers: buildHeaders({ 'Accept': 'text/event-stream' }),
       body: JSON.stringify(question),
       signal: controller.signal,
     })

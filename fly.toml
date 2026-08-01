@@ -1,0 +1,46 @@
+# Fly.io 配置 for CodeNova Backend
+# 文档: https://fly.io/docs/reference/configuration/
+# 使用: flyctl deploy
+
+app = "codenova-backend"
+primary_region = "hkg"  # 香港, 可改 sin/nrt 等
+
+[build]
+  dockerfile = "backend/Dockerfile.prod"
+
+[env]
+  APP_ENV = "production"
+  APP_DEBUG = "false"
+  LOG_LEVEL = "INFO"
+  WEB_CONCURRENCY = "2"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true    # 空闲时自动停机, 节省免费额度
+  auto_start_machines = true   # 收到请求时自动唤醒
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+# 持久化卷 (可选, 用于克隆仓库缓存)
+[[mounts]]
+  source = "codenova_repo_cache"
+  destination = "/tmp/codenova_repos"
+  initial_size = "1GB"
+
+# 健康检查
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+# 资源限制 (免费 tier: shared-cpu-1x, 256MB)
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
