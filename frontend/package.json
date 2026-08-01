@@ -20,7 +20,7 @@
     "remark-gfm": "^4.0.0",
     "@xyflow/react": "^12.3.5",
     "mermaid": "^11.7.0",
-    "lucide-react": "^0.454.0",
+    "lucide-react": "^1.27.0",
     "shiki": "^1.22.2"
   },
   "devDependencies": {
