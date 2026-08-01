@@ -44,7 +44,7 @@ PyGithub==2.4.0
 # --- 工具库 ---
 loguru==0.7.2
 tenacity==9.0.0
-orjson==3.10.7
+orjson==3.11.9
 tqdm==4.66.5
 
 # --- 开发与测试 ---
