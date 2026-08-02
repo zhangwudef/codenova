@@ -1,0 +1,92 @@
+# ============================================================
+# CodeNova 智码星 —— 轻量 Demo 环境
+# 仅 3 个服务（后端 + Qdrant + 前端），最低资源占用，快速体验核心功能。
+# 用法：docker compose -f docker-compose.demo.yml up -d
+#
+# 与完整版（docker-compose.yml）的区别：
+#   - 移除 PostgreSQL / Redis / MinIO / Celery Worker
+#   - 保留：仓库解析、AST 切分、依赖图、时序图、RAG 索引、智能问答
+#   - 不可用：异步解析（Celery）、问答持久化与索引状态（MinIO）
+#     这些功能在缺失依赖时会优雅降级，不影响主流程。
+# ============================================================
+
+name: codenova-demo
+
+services:
+  # ---------- Qdrant 向量数据库（RAG 检索必需） ----------
+  qdrant:
+    image: qdrant/qdrant:v1.11.0
+    container_name: codenova-demo-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_demo_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6333/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - codenova-demo-net
+
+  # ---------- 后端 FastAPI ----------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codenova-demo-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      # 指向 demo 网络内的 Qdrant 容器
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_URL: http://qdrant:6333
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - repo_demo_cache:/tmp/codenova_repos
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    # 注意：用 ';' 而非 '&&'，使 bootstrap 中 MinIO 初始化失败时
+    # （demo 无 MinIO）uvicorn 仍能正常启动；Qdrant 集合也会被
+    # VectorStoreService 惰性创建，故不影响核心功能。
+    command: >
+      sh -c "python -m app.bootstrap;
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - codenova-demo-net
+
+  # ---------- 前端 Vite + React ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: codenova-demo-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - codenova-demo-net
+
+volumes:
+  qdrant_demo_data:
+  repo_demo_cache:
+
+networks:
+  codenova-demo-net:
+    driver: bridge

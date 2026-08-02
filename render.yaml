@@ -1,0 +1,105 @@
+# Render Blueprint for CodeNova 在线 Demo 部署
+# 文档: https://render.com/docs/blueprint-spec
+#
+# 使用方法:
+#   1. Fork 仓库到自己的 GitHub 账号
+#   2. 在 Render Dashboard → New → Blueprint → 选择 Fork 仓库
+#   3. 配置必需环境变量 (OPENAI_API_KEY / QDRANT_URL / QDRANT_API_KEY)
+#   4. Render 会按本文件自动创建服务
+#
+# 拓扑:
+#   - codenova-backend (Web Service, 免费 tier 512MB)
+#       ↳ 连接 Qdrant Cloud (免费 1GB)
+#       ↳ 连接 Redis Cloud (可选, 用于 Celery)
+#   - codenova-frontend (Static Site, 免费 tier)
+#       ↳ 通过 VITE_API_BASE_URL 指向 backend
+#   - codenova-worker (Background Worker, 可选, 用于异步解析)
+
+services:
+  # ---------- 后端 API ----------
+  - type: web
+    name: codenova-backend
+    runtime: docker
+    plan: free
+    region: singapore  # 或 oregon / frankfurt, 按用户分布选择
+    dockerfilePath: ./backend/Dockerfile.prod
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_HOST
+        value: 0.0.0.0
+      - key: APP_PORT
+        value: 8000
+      - key: BACKEND_EXTERNAL_HOST
+        value: codenova-backend.onrender.com  # 替换为你的实际域名
+      - key: LOG_LEVEL
+        value: INFO
+      # Qdrant Cloud (推荐使用 https://cloud.qdrant.io 免费 1GB)
+      - key: QDRANT_URL
+        sync: false  # 需手动填写
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_HOST
+        value: ""  # 直接使用 QDRANT_URL, 此项留空
+      # LLM (必需)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com/v1
+      - key: LLM_MODEL
+        value: gpt-4o-mini  # Demo 用 mini 省钱
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-m3
+      # 可选: GitHub Token 提升 clone 限流
+      - key: GITHUB_TOKEN
+        sync: false
+      # Demo 安全: 启用 API Key 鉴权
+      - key: CODENOVA_API_KEY
+        sync: false
+      # CORS: 前端域名
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://codenova-frontend.onrender.com
+      # Demo 模式: 限制最大文件数防止 OOM
+      - key: DEMO_MAX_FILES
+        value: "150"
+
+  # ---------- 前端静态站点 ----------
+  - type: web
+    name: codenova-frontend
+    runtime: static
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    publishPath: ./dist
+    pullRequestPreviewsEnabled: false  # 避免预览域名 CORS 麻烦
+    rootDir: frontend
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://codenova-backend.onrender.com/api/v1
+      - key: VITE_WS_BASE_URL
+        value: wss://codenova-backend.onrender.com/ws
+
+  # ---------- 异步解析 Worker (可选, 启用后异步解析可用) ----------
+  # - type: worker
+  #   name: codenova-worker
+  #   runtime: docker
+  #   plan: free
+  #   dockerfilePath: ./backend/Dockerfile.prod
+  #   dockerContext: ./backend
+  #   envVars:
+  #     - key: APP_ENV
+  #       value: production
+  #     - key: CELERY_BROKER_URL
+  #       sync: false  # 需要 Redis Cloud URL
+  #     - key: CELERY_RESULT_BACKEND
+  #       sync: false
+  #     - key: QDRANT_URL
+  #       sync: false
+  #     - key: OPENAI_API_KEY
+  #       sync: false

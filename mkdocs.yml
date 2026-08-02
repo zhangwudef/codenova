@@ -1,0 +1,72 @@
+# MkDocs 配置 —— 从 docs/ 生成 GitHub Pages 文档站
+# 使用：mkdocs build（或 mkdocs serve 本地预览）
+# GitHub Pages 部署：见 .github/workflows/docs.yml（需另建）
+
+site_name: CodeNova 智码星
+site_url: https://zhangwudef.github.io/codenova/
+site_description: >-
+  基于 AST + 双索引 RAG 的代码理解与文档自动化平台
+repo_name: zhangwudef/codenova
+repo_url: https://github.com/zhangwudef/codenova
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: 切换暗色模式
+    - scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: 切换亮色模式
+
+nav:
+  - 首页: index.md
+  - 快速开始:
+      - 部署指南: DEPLOYMENT.md
+      - Demo 仓库: DEMO_REPOS.md
+  - 技术文档:
+      - 性能基准: benchmark.md
+      - API 参考: api.md
+      - 故障排查: troubleshooting.md
+  - 架构决策:
+      - "ADR-0001: 使用 ADR": decisions/0001-record-architecture-decisions.md
+      - "ADR-0002: Tree-sitter": decisions/0002-tree-sitter-for-ast-parsing.md
+  - 社区:
+      - 贡献指南: CONTRIBUTING.md
+      - 行为准则: CODE_OF_CONDUCT.md
+      - 安全政策: SECURITY.md
+      - 更新日志: CHANGELOG.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang:
+        - en
+        - ja

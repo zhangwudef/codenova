@@ -1,0 +1,94 @@
+[project]
+name = "codenova-backend"
+version = "0.1.0"
+description = "CodeNova AI 代码平台后端"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "*.egg-info",
+    "migrations",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+    "BLE",    # flake8-blind-except (捕获过于宽泛的异常)
+    "PLW",    # pylint warnings
+]
+ignore = [
+    "BLE001",  # 允许在明确标注容错意图的地方捕获 Exception
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/v1/*.py" = ["BLE001"]  # API 层允许捕获通用异常用于错误处理
+"app/services/rag/*.py" = ["BLE001"]  # RAG 服务允许捕获通用异常用于外部服务容错
+"app/services/github_service.py" = ["BLE001"]
+"app/core/celery_app.py" = ["BLE001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html:tests/coverage_html",
+    "--cov-report=xml:tests/coverage.xml",
+    "--cov-config=tests/.coveragerc",
+]
+markers = [
+    "integration: marks tests that require external services (Qdrant, OpenAI, etc.)",
+    "benchmark: marks benchmark tests (slow, run with --benchmark flag)",
+    "slow: marks slow tests",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/celery_app.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+show_missing = true
+precision = 2
+fail_under = 55  # 基线: 55%（从 50% 提升，后续逐步提升至 70%）

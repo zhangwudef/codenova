@@ -1,0 +1,46 @@
+# Production-grade Dockerfile for CodeNova Backend
+# 与开发版区别:
+#   - 不挂载源码 volume, 镜像自包含
+#   - uvicorn 关闭 --reload, 启用多 worker
+#   - 创建非 root 用户运行
+#   - 适配 Render / Fly.io / Railway 等容器平台
+# ============================================================
+FROM python:3.11-slim AS base
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
+        libpq-dev \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 安装依赖（先复制以利用缓存）
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# 复制源码
+COPY . .
+
+# 创建非 root 用户
+RUN useradd -m -u 1000 codenova && chown -R codenova:codenova /app
+USER codenova
+
+# 默认 uvicorn 配置；可通过 PORT 环境变量覆盖端口
+ENV PORT=8000
+ENV WEB_CONCURRENCY=2
+EXPOSE 8000
+
+# 启动命令：多 worker + 限制 max-requests 防内存泄漏
+CMD uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port ${PORT} \
+    --workers ${WEB_CONCURRENCY} \
+    --proxy-headers \
+    --forwarded-allow-ips="*" \
+    --max-requests 1000 \
+    --max-requests-jitter 100

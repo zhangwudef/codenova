@@ -1,0 +1,5 @@
+# GitHub Sponsors / Funding configuration
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# 自定义赞助链接（邮箱联系）
+custom: ["mailto:r24847975@gmail.com?subject=CodeNova%20Sponsorship"]
