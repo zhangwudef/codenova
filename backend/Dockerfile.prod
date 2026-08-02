@@ -26,6 +26,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 复制源码
 COPY . .
 
+# 预下载 Embedding 模型（构建时下载，避免运行时每次启动都下载）
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-zh-v1.5')" || echo "Model pre-download skipped (will download on first run)"
+
 # 创建非 root 用户
 RUN useradd -m -u 1000 codenova && chown -R codenova:codenova /app
 USER codenova

@@ -50,11 +50,11 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_BASE_URL
-        value: https://api.openai.com/v1
+        value: https://api.deepseek.com/v1
       - key: LLM_MODEL
-        value: gpt-4o-mini  # Demo 用 mini 省钱
+        value: deepseek-chat  # DeepSeek 兼容 OpenAI 接口
       - key: EMBEDDING_MODEL
-        value: BAAI/bge-m3
+        value: BAAI/bge-small-zh-v1.5  # 512 维，约 100MB，适配 512MB RAM
       # 可选: GitHub Token 提升 clone 限流
       - key: GITHUB_TOKEN
         sync: false
@@ -67,6 +67,9 @@ services:
       # Demo 模式: 限制最大文件数防止 OOM
       - key: DEMO_MAX_FILES
         value: "150"
+      # 向量维度（bge-small-zh-v1.5 = 512 维）
+      - key: QDRANT_VECTOR_SIZE
+        value: "512"
 
   # ---------- 前端静态站点 ----------
   - type: web
