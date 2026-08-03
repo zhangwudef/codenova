@@ -23,7 +23,7 @@ redis==5.0.8
 celery==5.4.0
 
 # --- Qdrant 向量数据库 ---
-qdrant-client==1.11.0
+qdrant-client==1.18.0
 
 # --- MinIO 对象存储 ---
 minio==7.2.7
