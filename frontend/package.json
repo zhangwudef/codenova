@@ -30,7 +30,7 @@
     "@vitest/coverage-v8": "^2.1.2",
     "@vitest/ui": "^2.1.2",
     "@testing-library/react": "^16.0.1",
-    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/user-event": "^14.5.2",
     "autoprefixer": "^10.4.20",
     "@eslint/js": "^9.15.0",
