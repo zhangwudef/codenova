@@ -21,7 +21,7 @@
     "@xyflow/react": "^12.3.5",
     "mermaid": "^11.7.0",
     "lucide-react": "^0.454.0",
-    "shiki": "^1.22.2"
+    "shiki": "^4.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.10",
