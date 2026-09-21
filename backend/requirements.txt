@@ -11,7 +11,7 @@ websockets==12.0
 # --- 配置与环境 ---
 pydantic==2.9.2
 pydantic-settings==2.5.2
-python-dotenv==1.0.1
+python-dotenv==1.2.3
 
 # --- 数据库 ---
 psycopg[binary]==3.2.1
