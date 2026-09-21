@@ -45,7 +45,7 @@ PyGithub==2.4.0
 loguru==0.7.2
 tenacity==9.0.0
 orjson==3.10.7
-tqdm==4.66.5
+tqdm==4.70.1
 
 # --- 开发与测试 ---
 pytest==8.3.3
