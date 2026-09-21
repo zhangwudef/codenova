@@ -33,7 +33,7 @@
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/user-event": "^14.5.2",
     "autoprefixer": "^10.4.20",
-    "@eslint/js": "^9.15.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.49.0",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
