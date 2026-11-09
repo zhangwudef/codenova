@@ -16,7 +16,7 @@ python-dotenv==1.0.1
 # --- 数据库 ---
 psycopg[binary]==3.2.1
 SQLAlchemy==2.0.35
-alembic==1.13.2
+alembic==1.20.1
 
 # --- Redis / Celery ---
 redis==5.0.8
